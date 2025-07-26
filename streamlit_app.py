@@ -72,6 +72,9 @@ st.markdown("""
     .category-感謝 { background-color: #FFC107; color: black; }
     .category-情報提供 { background-color: #3F51B5; color: white; }
     .category-問題提起 { background-color: #FF5722; color: white; }
+    .category-正論 { background-color: #009688; color: white; }
+    .category-差別的 { background-color: #212121; color: white; }
+    .category-共感 { background-color: #FFB6C1; color: black; }
     
 </style>
 """, unsafe_allow_html=True)
@@ -321,7 +324,7 @@ def analyze_single_comment(comment_text, context_comments=None):
             messages=[
                 {
                     "role": "system",
-                    "content": "与えられたコメントを分析し、指定された形式の有効なJSONのみを返してください。categoryは該当するものを複数選択可能です（配列で返してください）。「草」「w」「笑」等が含まれる場合、文脈に応じて「嘲笑」（馬鹿にする意図）または「感想」（純粋に面白がる）を判定してください。「侮辱」は相手を見下したり軽蔑する表現、「上から目線」は偉そうな態度や高圧的な物言い、「論点すり替え」は本来の議題から話を逸らす行為、「攻撃的」は敵意や攻撃性を含む表現、「賞賛」は称賛や褒める表現、「感謝」は感謝の気持ちを表す表現、「情報提供」は新しい情報や知識を提供する内容、「問題提起」は問題点や課題を指摘する内容を指します。例えば、皮肉を込めた感想の場合は[\"皮肉\", \"感想\"]のように複数を選択してください。explanationには、具体的にコメントのどの部分がなぜそのカテゴリーに分類されたのか、一般の人にも分かりやすい日本語で説明してください。技術的な用語（JSON、true/false等）は使わないでください。"
+                    "content": "与えられたコメントを分析し、指定された形式の有効なJSONのみを返してください。categoryは該当するものを複数選択可能です（配列で返してください）。「草」「w」「笑」等が含まれる場合、文脈に応じて「嘲笑」（馬鹿にする意図）または「感想」（純粋に面白がる）を判定してください。「侮辱」は相手を見下したり軽蔑する表現、「上から目線」は偉そうな態度や高圧的な物言い、「論点すり替え」は本来の議題から話を逸らす行為、「攻撃的」は敵意や攻撃性を含む表現、「賞賛」は称賛や褒める表現、「感謝」は感謝の気持ちを表す表現、「情報提供」は新しい情報や知識を提供する内容、「問題提起」は問題点や課題を指摘する内容、「正論」は論理的で正当性のある主張、「差別的」は特定の属性に基づく偏見や差別的表現、「共感」は他者の気持ちや状況に対する理解や同調を示す表現を指します。例えば、皮肉を込めた感想の場合は[\"皮肉\", \"感想\"]のように複数を選択してください。explanationには、具体的にコメントのどの部分がなぜそのカテゴリーに分類されたのか、一般の人にも分かりやすい日本語で説明してください。技術的な用語（JSON、true/false等）は使わないでください。"
                 },
                 {
                     "role": "user",
@@ -459,6 +462,22 @@ def display_analysis_result(comment, analysis):
     if fallacy and fallacy != 'null':
         st.markdown("#### ⚠️ 検出された論理的誤謬")
         st.warning(fallacy)
+    
+    # 主張の妥当性
+    validity = analysis.get('validityAssessment')
+    if validity and validity != '判断困難':
+        st.markdown("#### 📊 主張の妥当性")
+        if validity == '高い':
+            st.success(f"妥当性: {validity}")
+        elif validity == '中程度':
+            st.info(f"妥当性: {validity}")
+        elif validity == '低い':
+            st.error(f"妥当性: {validity}")
+        
+        # 妥当性の理由
+        validity_reason = analysis.get('validityReason')
+        if validity_reason:
+            st.markdown(f"**評価理由**: {validity_reason}")
     
     # 詳細な説明
     st.markdown("#### 📝 判定理由")
