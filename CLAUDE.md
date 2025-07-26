@@ -4,41 +4,34 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## プロジェクト概要
 
-YouTube Comment Analyzer - YouTube動画のコメントを抽出してAIで分析するPython製CLIツール
+コメント審判 (Comment Umpire) - YouTube動画のコメントを表示し、AIで詳細分析するStreamlit Webアプリ
 
 ## 開発環境
 
 - プラットフォーム: Windows (win32)
-- 作業ディレクトリ: C:\Project\ArgumentChecker
+- 作業ディレクトリ: C:\Project\comment_umpire
 - Python 3.8以上のプロジェクト
 
 ## 主要コマンド
 
 ```bash
-# Python版のディレクトリに移動
-cd python_version
-
 # 依存関係のインストール
-pip install -r requirements.txt
+pip install -r requirements_streamlit.txt
 
-# コメント抽出
-python cli.py extract [YOUTUBE_URL]
-
-# コメント分析
-python cli.py analyze comments.json --limit 10
+# Webアプリの起動
+streamlit run streamlit_app.py
 
 # テスト実行
-python -m pytest
+python run_tests.py
 ```
 
 ## プロジェクト構造
 
-- `python_version/` - Python実装のディレクトリ
-  - `cli.py` - CLIエントリーポイント
-  - `youtube_api.py` - YouTube Data API v3のクライアント実装
-  - `comment_analyzer.py` - OpenAI APIを使用したコメント分析
-  - `config.py` - 設定ファイル（レート制限対策など）
-  - `types.py` - 型定義（dataclass）
+- `streamlit_app.py` - メインのWebアプリケーション
+- `core_prompt.txt` - AI分析の基本プロンプト定義
+- `additional_prompt.txt` - ユーザーカスタマイズ用プロンプト
+- `test_comment_analysis.py` - テストコード
+- `run_tests.py` - テスト実行スクリプト
 
 ## 重要な注意事項
 

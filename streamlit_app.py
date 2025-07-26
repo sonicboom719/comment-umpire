@@ -70,6 +70,8 @@ st.markdown("""
     .category-攻撃的 { background-color: #B71C1C; color: white; }
     .category-賞賛 { background-color: #8BC34A; color: white; }
     .category-感謝 { background-color: #FFC107; color: black; }
+    .category-情報提供 { background-color: #3F51B5; color: white; }
+    .category-問題提起 { background-color: #FF5722; color: white; }
     
 </style>
 """, unsafe_allow_html=True)
@@ -251,6 +253,18 @@ def fetch_channel_info(channel_id):
         st.error(f"チャンネル情報取得エラー: {e}")
         return None
 
+# コアプロンプトを読み込む関数
+def load_core_prompt():
+    try:
+        with open('core_prompt.txt', 'r', encoding='utf-8') as f:
+            return f.read().strip()
+    except FileNotFoundError:
+        st.error("core_prompt.txtファイルが見つかりません。")
+        return ""
+    except Exception as e:
+        st.error(f"コアプロンプトファイルの読み込みエラー: {e}")
+        return ""
+
 # 追加プロンプトを読み込む関数
 def load_additional_prompt():
     try:
@@ -277,6 +291,11 @@ def analyze_single_comment(comment_text, context_comments=None):
     if not client:
         return None
     
+    # コアプロンプトを読み込み
+    core_prompt = load_core_prompt()
+    if not core_prompt:
+        return None
+    
     # 追加プロンプトを読み込み
     additional_prompt = load_additional_prompt()
     additional_section = f"\n\n【追加の分析指示】\n{additional_prompt}" if additional_prompt else ""
@@ -289,34 +308,12 @@ def analyze_single_comment(comment_text, context_comments=None):
             context_section += f"{i+1}. {ctx_comment['author']}: {ctx_comment['text_original']}\n"
         context_section += "\n分析対象は最後のコメントです。会話の流れを考慮して分析してください。\n"
     
-    prompt = f"""以下のYouTubeコメントを分析してください。{context_section}
-
-コメント: "{comment_text}"
-
-以下の形式でJSONを返してください。
-【重要】categoryは以下の14個から該当するものを複数選択可能です（配列で返してください）：
-- 皮肉（皮肉や嫌味を含むコメント）
-- 嘲笑（「草」「w」「笑」等を使った馬鹿にする笑いや揶揄）
-- 感想（動画に対する感想や感動）
-- 意見（投稿者の考えや主張への意見）
-- アドバイス（建設的な提案や助言）
-- 批判（内容への建設的な批判）
-- 誹謗中傷（個人攻撃や侮辱）
-- 悪口（単純な悪口や罵声）
-- 侮辱（相手を見下したり軽蔑する表現）
-- 上から目線（偉そうな態度や高圧的な物言い）
-- 論点すり替え（本来の議題から話を逸らす行為）
-- 攻撃的（敵意や攻撃性を含む表現）
-- 賞賛（称賛や褒める表現）
-- 感謝（感謝の気持ちを表す表現）
-
-{{
-    "category": ["皮肉", "嘲笑", "感想", "意見", "アドバイス", "批判", "誹謗中傷", "悪口", "侮辱", "上から目線", "論点すり替え", "攻撃的", "賞賛", "感謝"],
-    "isCounterArgument": true/false,
-    "grahamHierarchy": "DH0: 罵倒|DH1: 人格攻撃|DH2: 口調への反応|DH3: 反論|DH4: 反駁|DH5: 論破|DH6: 中心論点の論破|null",
-    "logicalFallacy": "対人論証|権威論証|ストローマン論法|お前だって論法|滑り坂論法|null",
-    "explanation": "なぜこのような判定になったのか、詳細な理由を説明してください"
-}}{additional_section}"""
+    # プロンプトを構築（テンプレート文字列を使用）
+    prompt = core_prompt.format(
+        context_section=context_section,
+        comment_text=comment_text,
+        additional_section=additional_section
+    )
 
     try:
         response = client.chat.completions.create(
@@ -324,7 +321,7 @@ def analyze_single_comment(comment_text, context_comments=None):
             messages=[
                 {
                     "role": "system",
-                    "content": "与えられたコメントを分析し、指定された形式の有効なJSONのみを返してください。categoryは該当するものを複数選択可能です（配列で返してください）。「草」「w」「笑」等が含まれる場合、文脈に応じて「嘲笑」（馬鹿にする意図）または「感想」（純粋に面白がる）を判定してください。「侮辱」は相手を見下したり軽蔑する表現、「上から目線」は偉そうな態度や高圧的な物言い、「論点すり替え」は本来の議題から話を逸らす行為、「攻撃的」は敵意や攻撃性を含む表現、「賞賛」は称賛や褒める表現、「感謝」は感謝の気持ちを表す表現を指します。例えば、皮肉を込めた感想の場合は[\"皮肉\", \"感想\"]のように複数を選択してください。explanationには、具体的にコメントのどの部分がなぜそのカテゴリーに分類されたのか、一般の人にも分かりやすい日本語で説明してください。技術的な用語（JSON、true/false等）は使わないでください。"
+                    "content": "与えられたコメントを分析し、指定された形式の有効なJSONのみを返してください。categoryは該当するものを複数選択可能です（配列で返してください）。「草」「w」「笑」等が含まれる場合、文脈に応じて「嘲笑」（馬鹿にする意図）または「感想」（純粋に面白がる）を判定してください。「侮辱」は相手を見下したり軽蔑する表現、「上から目線」は偉そうな態度や高圧的な物言い、「論点すり替え」は本来の議題から話を逸らす行為、「攻撃的」は敵意や攻撃性を含む表現、「賞賛」は称賛や褒める表現、「感謝」は感謝の気持ちを表す表現、「情報提供」は新しい情報や知識を提供する内容、「問題提起」は問題点や課題を指摘する内容を指します。例えば、皮肉を込めた感想の場合は[\"皮肉\", \"感想\"]のように複数を選択してください。explanationには、具体的にコメントのどの部分がなぜそのカテゴリーに分類されたのか、一般の人にも分かりやすい日本語で説明してください。技術的な用語（JSON、true/false等）は使わないでください。"
                 },
                 {
                     "role": "user",
@@ -451,7 +448,7 @@ def display_analysis_result(comment, analysis):
         st.markdown(f'<span class="category-badge category-{categories}">{categories}</span>', unsafe_allow_html=True)
     
     # 反論の分析
-    if analysis['isCounterArgument']:
+    if analysis['isCounter']:
         st.markdown("#### 🎯 反論の質（グラハムのヒエラルキー）")
         hierarchy = analysis.get('grahamHierarchy', '該当なし')
         if hierarchy != '該当なし':
