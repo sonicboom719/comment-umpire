@@ -15,7 +15,7 @@ load_dotenv()
 
 # ページ設定
 st.set_page_config(
-    page_title="Comment Umpire",
+    page_title="コメント審判",
     page_icon="💬",
     layout="wide"
 )
@@ -56,12 +56,20 @@ st.markdown("""
         font-weight: bold;
         margin-bottom: 10px;
     }
+    .category-皮肉 { background-color: #FF5722; color: white; }
+    .category-嘲笑 { background-color: #E91E63; color: white; }
     .category-感想 { background-color: #4CAF50; color: white; }
     .category-意見 { background-color: #2196F3; color: white; }
     .category-アドバイス { background-color: #00BCD4; color: white; }
     .category-批判 { background-color: #FF9800; color: white; }
     .category-誹謗中傷 { background-color: #F44336; color: white; }
     .category-悪口 { background-color: #9C27B0; color: white; }
+    .category-侮辱 { background-color: #D32F2F; color: white; }
+    .category-上から目線 { background-color: #795548; color: white; }
+    .category-論点すり替え { background-color: #607D8B; color: white; }
+    .category-攻撃的 { background-color: #B71C1C; color: white; }
+    .category-賞賛 { background-color: #8BC34A; color: white; }
+    .category-感謝 { background-color: #FFC107; color: black; }
     
 </style>
 """, unsafe_allow_html=True)
@@ -80,7 +88,7 @@ if 'loading_replies' not in st.session_state:
 if 'is_loading_more' not in st.session_state:
     st.session_state.is_loading_more = False
 if 'displayed_count' not in st.session_state:
-    st.session_state.displayed_count = 50
+    st.session_state.displayed_count = 100
 if 'analyzed_comment' not in st.session_state:
     st.session_state.analyzed_comment = None
 if 'analyzing' not in st.session_state:
@@ -89,6 +97,10 @@ if 'loading_show_more' not in st.session_state:
     st.session_state.loading_show_more = False
 if 'button_clicked' not in st.session_state:
     st.session_state.button_clicked = False
+if 'pending_analysis' not in st.session_state:
+    st.session_state.pending_analysis = None
+if 'video_info' not in st.session_state:
+    st.session_state.video_info = None
 
 # YouTube API クライアントの初期化
 @st.cache_resource
@@ -122,7 +134,7 @@ def extract_video_id(url):
     return None
 
 # コメントを取得
-def fetch_comments(video_id, page_token=None, max_results=50):
+def fetch_comments(video_id, page_token=None, max_results=100):
     youtube = get_youtube_client()
     
     try:
@@ -191,38 +203,120 @@ def format_datetime(dt_str):
     dt = datetime.fromisoformat(dt_str.replace('Z', '+00:00'))
     return dt.strftime('%Y/%m/%d %H:%M')
 
+# 動画情報を取得
+def fetch_video_info(video_id):
+    youtube = get_youtube_client()
+    
+    try:
+        request = youtube.videos().list(
+            part="snippet",
+            id=video_id
+        )
+        response = request.execute()
+        
+        if response.get('items'):
+            video = response['items'][0]['snippet']
+            return {
+                'title': video['title'],
+                'channel_title': video['channelTitle'],
+                'channel_id': video['channelId'],
+                'published_at': video['publishedAt'],
+                'thumbnail': video['thumbnails']['medium']['url']
+            }
+        return None
+    
+    except HttpError as e:
+        st.error(f"動画情報取得エラー: {e}")
+        return None
+
+# チャンネル情報を取得
+def fetch_channel_info(channel_id):
+    youtube = get_youtube_client()
+    
+    try:
+        request = youtube.channels().list(
+            part="snippet",
+            id=channel_id
+        )
+        response = request.execute()
+        
+        if response.get('items'):
+            channel = response['items'][0]['snippet']
+            return {
+                'profile_image': channel['thumbnails']['default']['url']
+            }
+        return None
+    
+    except HttpError as e:
+        st.error(f"チャンネル情報取得エラー: {e}")
+        return None
+
+# 追加プロンプトを読み込む関数
+def load_additional_prompt():
+    try:
+        with open('additional_prompt.txt', 'r', encoding='utf-8') as f:
+            lines = f.readlines()
+        
+        # コメント行（#で始まる行）と空行を除去
+        additional_lines = []
+        for line in lines:
+            line = line.strip()
+            if line and not line.startswith('#'):
+                additional_lines.append(line)
+        
+        return '\n'.join(additional_lines) if additional_lines else ""
+    except FileNotFoundError:
+        return ""
+    except Exception as e:
+        st.warning(f"追加プロンプトファイルの読み込みエラー: {e}")
+        return ""
+
 # 単一のコメントを分析
-def analyze_single_comment(comment_text):
+def analyze_single_comment(comment_text, context_comments=None):
     client = get_openai_client()
     if not client:
         return None
     
-    prompt = f"""以下のYouTubeコメントを分析してください。
+    # 追加プロンプトを読み込み
+    additional_prompt = load_additional_prompt()
+    additional_section = f"\n\n【追加の分析指示】\n{additional_prompt}" if additional_prompt else ""
+    
+    # 文脈情報を構築
+    context_section = ""
+    if context_comments:
+        context_section = "\n\n【文脈情報】\n以下は会話の流れです：\n"
+        for i, ctx_comment in enumerate(context_comments):
+            context_section += f"{i+1}. {ctx_comment['author']}: {ctx_comment['text_original']}\n"
+        context_section += "\n分析対象は最後のコメントです。会話の流れを考慮して分析してください。\n"
+    
+    prompt = f"""以下のYouTubeコメントを分析してください。{context_section}
 
 コメント: "{comment_text}"
 
 以下の形式でJSONを返してください。
-【重要】categoryは必ず以下の6つのうち1つだけを選んでください：
+【重要】categoryは以下の14個から該当するものを複数選択可能です（配列で返してください）：
+- 皮肉（皮肉や嫌味を含むコメント）
+- 嘲笑（「草」「w」「笑」等を使った馬鹿にする笑いや揶揄）
 - 感想（動画に対する感想や感動）
 - 意見（投稿者の考えや主張への意見）
 - アドバイス（建設的な提案や助言）
 - 批判（内容への建設的な批判）
 - 誹謗中傷（個人攻撃や侮辱）
 - 悪口（単純な悪口や罵声）
+- 侮辱（相手を見下したり軽蔑する表現）
+- 上から目線（偉そうな態度や高圧的な物言い）
+- 論点すり替え（本来の議題から話を逸らす行為）
+- 攻撃的（敵意や攻撃性を含む表現）
+- 賞賛（称賛や褒める表現）
+- 感謝（感謝の気持ちを表す表現）
 
 {{
-    "category": "感想|意見|アドバイス|批判|誹謗中傷|悪口",
+    "category": ["皮肉", "嘲笑", "感想", "意見", "アドバイス", "批判", "誹謗中傷", "悪口", "侮辱", "上から目線", "論点すり替え", "攻撃的", "賞賛", "感謝"],
     "isCounterArgument": true/false,
-    "grahamHierarchy": "DH0: 罵倒|DH1: 人格攻撃|DH2: 口調への反応|DH3: 反論|DH4: 反駁|DH5: 論破|DH6: 中心論点の論破|該当なし",
-    "logicalFallacies": {{
-        "対人論証": true/false,
-        "権威論証": true/false,
-        "ストローマン論法": true/false,
-        "お前だって論法": true/false,
-        "滑り坂論法": true/false
-    }},
+    "grahamHierarchy": "DH0: 罵倒|DH1: 人格攻撃|DH2: 口調への反応|DH3: 反論|DH4: 反駁|DH5: 論破|DH6: 中心論点の論破|null",
+    "logicalFallacy": "対人論証|権威論証|ストローマン論法|お前だって論法|滑り坂論法|null",
     "explanation": "なぜこのような判定になったのか、詳細な理由を説明してください"
-}}"""
+}}{additional_section}"""
 
     try:
         response = client.chat.completions.create(
@@ -230,7 +324,7 @@ def analyze_single_comment(comment_text):
             messages=[
                 {
                     "role": "system",
-                    "content": "与えられたコメントを分析し、指定された形式の有効なJSONのみを返してください。explanationには、具体的にコメントのどの部分がなぜそのカテゴリーに分類されたのか、一般の人にも分かりやすい日本語で説明してください。技術的な用語（JSON、true/false等）は使わないでください。"
+                    "content": "与えられたコメントを分析し、指定された形式の有効なJSONのみを返してください。categoryは該当するものを複数選択可能です（配列で返してください）。「草」「w」「笑」等が含まれる場合、文脈に応じて「嘲笑」（馬鹿にする意図）または「感想」（純粋に面白がる）を判定してください。「侮辱」は相手を見下したり軽蔑する表現、「上から目線」は偉そうな態度や高圧的な物言い、「論点すり替え」は本来の議題から話を逸らす行為、「攻撃的」は敵意や攻撃性を含む表現、「賞賛」は称賛や褒める表現、「感謝」は感謝の気持ちを表す表現を指します。例えば、皮肉を込めた感想の場合は[\"皮肉\", \"感想\"]のように複数を選択してください。explanationには、具体的にコメントのどの部分がなぜそのカテゴリーに分類されたのか、一般の人にも分かりやすい日本語で説明してください。技術的な用語（JSON、true/false等）は使わないでください。"
                 },
                 {
                     "role": "user",
@@ -249,7 +343,7 @@ def analyze_single_comment(comment_text):
         return None
 
 # コメントを表示
-def display_comment(comment, is_reply=False):
+def display_comment(comment, is_reply=False, parent_comment=None, previous_replies=None):
     col1, col2 = st.columns([1, 20])
     
     with col1:
@@ -282,10 +376,12 @@ def display_comment(comment, is_reply=False):
                 col1, col2, col3 = st.columns([1, 2, 10])
                 with col1:
                     if st.button("⚖️ 審判", key=f"judge_{comment['id']}", help="AIでコメントを分析"):
-                        st.session_state.analyzing = True
-                        st.session_state.analyzed_comment = {
+                        # 前回の結果をクリアし、保留中の分析を設定
+                        st.session_state.analyzed_comment = None
+                        st.session_state.analyzing = False
+                        st.session_state.pending_analysis = {
                             'comment': comment,
-                            'analysis': None
+                            'context_comments': None  # 親コメントには文脈なし
                         }
                         st.rerun()
                 
@@ -305,10 +401,19 @@ def display_comment(comment, is_reply=False):
                 col1, col2 = st.columns([1, 12])
                 with col1:
                     if st.button("⚖️ 審判", key=f"judge_{comment['id']}", help="AIでコメントを分析"):
-                        st.session_state.analyzing = True
-                        st.session_state.analyzed_comment = {
+                        # 返信コメントの場合は文脈情報を構築
+                        context_comments = None
+                        if is_reply and parent_comment:
+                            context_comments = [parent_comment]  # 親コメントを最初に追加
+                            if previous_replies:
+                                context_comments.extend(previous_replies)  # それまでの返信を追加
+                        
+                        # 前回の結果をクリアし、保留中の分析を設定
+                        st.session_state.analyzed_comment = None
+                        st.session_state.analyzing = False
+                        st.session_state.pending_analysis = {
                             'comment': comment,
-                            'analysis': None
+                            'context_comments': context_comments
                         }
                         st.rerun()
 
@@ -333,9 +438,17 @@ def display_analysis_result(comment, analysis):
         clean_text = remove_html_tags(comment['text'])
         st.text(clean_text)
     
-    # カテゴリー表示
-    category = analysis['category']
-    st.markdown(f'<span class="category-badge category-{category}">{category}</span>', unsafe_allow_html=True)
+    # カテゴリー表示（複数対応・横並び）
+    categories = analysis['category']
+    if isinstance(categories, list):
+        # 複数カテゴリの場合 - 横並びで表示
+        category_html = ""
+        for category in categories:
+            category_html += f'<span class="category-badge category-{category}" style="margin-right: 8px;">{category}</span>'
+        st.markdown(category_html, unsafe_allow_html=True)
+    else:
+        # 単一カテゴリの場合（後方互換性）
+        st.markdown(f'<span class="category-badge category-{categories}">{categories}</span>', unsafe_allow_html=True)
     
     # 反論の分析
     if analysis['isCounterArgument']:
@@ -344,13 +457,11 @@ def display_analysis_result(comment, analysis):
         if hierarchy != '該当なし':
             st.info(hierarchy)
     
-    # 論理的誤謬
-    fallacies = analysis['logicalFallacies']
-    detected_fallacies = [k for k, v in fallacies.items() if v]
-    if detected_fallacies:
+    # 論理的誤謬（単一の値）
+    fallacy = analysis.get('logicalFallacy')
+    if fallacy and fallacy != 'null':
         st.markdown("#### ⚠️ 検出された論理的誤謬")
-        for fallacy in detected_fallacies:
-            st.warning(fallacy)
+        st.warning(fallacy)
     
     # 詳細な説明
     st.markdown("#### 📝 判定理由")
@@ -358,7 +469,7 @@ def display_analysis_result(comment, analysis):
 
 # メインアプリ
 def main():
-    st.title("💬 Comment Umpire")
+    st.title("💬 コメント審判")
     
     # URL入力
     url_container = st.container()
@@ -369,6 +480,19 @@ def main():
         with col2:
             load_button = st.button("コメントを取得", type="primary")
     
+    # 動画情報表示（URL入力ボックスの直下）
+    if st.session_state.video_info:
+        video_info = st.session_state.video_info
+        
+        # 動画情報を表示
+        col1, col2 = st.columns([1, 20])
+        with col1:
+            if 'profile_image' in video_info:
+                st.image(video_info['profile_image'], width=40)
+        with col2:
+            st.markdown(f"**{video_info['title']}**")
+            st.markdown(f"チャンネル: {video_info['channel_title']}")
+    
     # 新しいURLが入力されたら状態をリセット
     if load_button and url:
         video_id = extract_video_id(url)
@@ -378,16 +502,42 @@ def main():
                 st.session_state.next_page_token = None
                 st.session_state.replies = {}
                 st.session_state.video_id = video_id
-                st.session_state.displayed_count = 50
+                st.session_state.displayed_count = 100
                 st.session_state.analyzed_comment = None
+                st.session_state.video_info = None
             
-            # 初回コメント取得
-            with st.spinner("コメントを取得中..."):
+            # 動画情報とコメントを取得
+            with st.spinner("動画情報とコメントを取得中..."):
+                # 動画情報を取得
+                video_info = fetch_video_info(video_id)
+                if video_info:
+                    # チャンネル情報も取得
+                    channel_info = fetch_channel_info(video_info['channel_id'])
+                    if channel_info:
+                        video_info.update(channel_info)
+                    st.session_state.video_info = video_info
+                
+                # コメント取得
                 comments, next_token = fetch_comments(video_id)
                 st.session_state.comments = comments
                 st.session_state.next_page_token = next_token
+                
+                # 状態更新後に再描画を強制実行
+                st.rerun()
         else:
             st.error("有効なYouTube URLを入力してください")
+    
+    # 保留中の分析を開始
+    if st.session_state.pending_analysis:
+        pending = st.session_state.pending_analysis
+        st.session_state.pending_analysis = None
+        st.session_state.analyzing = True
+        st.session_state.analyzed_comment = {
+            'comment': pending['comment'],
+            'analysis': None,
+            'context_comments': pending['context_comments']
+        }
+        st.rerun()
     
     # 分析処理
     if st.session_state.analyzing and st.session_state.analyzed_comment:
@@ -397,8 +547,11 @@ def main():
             with st.sidebar:
                 st.markdown("### 🔍 コメント分析中...")
                 with st.spinner("AIがコメントを分析しています..."):
-                    # 分析実行
-                    analysis = analyze_single_comment(comment_data['comment']['text_original'])
+                    # 分析実行（文脈情報を含める）
+                    analysis = analyze_single_comment(
+                        comment_data['comment']['text_original'], 
+                        comment_data.get('context_comments')
+                    )
                     st.session_state.analyzed_comment['analysis'] = analysis
                     st.session_state.analyzing = False
                     st.rerun()
@@ -416,7 +569,7 @@ def main():
     
     # サイドバーに分析結果を表示
     with st.sidebar:
-        if st.session_state.analyzing and st.session_state.analyzed_comment and st.session_state.analyzed_comment['analysis'] is None:
+        if st.session_state.analyzing:
             # 分析中の表示（この部分は上の分析処理で表示されるため、ここでは何もしない）
             pass
         elif st.session_state.analyzed_comment and st.session_state.analyzed_comment['analysis']:
@@ -461,11 +614,13 @@ def main():
                                 st.markdown('<div style="height: 1px; background: #e0e0e0; width: 100%;"></div>', unsafe_allow_html=True)
                             with reply_col2:
                                 # 各返信コメント
-                                for reply in st.session_state.replies[comment['id']]:
-                                    with st.container():
-                                        st.markdown('<div style="border-left: 3px solid #e0e0e0; padding-left: 15px; margin-bottom: 10px; background-color: #fafafa; padding: 10px; border-radius: 3px;">', unsafe_allow_html=True)
-                                        display_comment(reply, is_reply=True)
-                                        st.markdown('</div>', unsafe_allow_html=True)
+                                replies = st.session_state.replies[comment['id']]
+                                for i, reply in enumerate(replies):
+                                    # それまでの返信コメントを文脈として渡す
+                                    previous_replies = replies[:i] if i > 0 else None
+                                    display_comment(reply, is_reply=True, parent_comment=comment, previous_replies=previous_replies)
+                                    if reply != replies[-1]:  # 最後以外に小さい区切り
+                                        st.markdown('<hr style="margin: 10px 0; border: none; border-top: 1px solid #f0f0f0;">', unsafe_allow_html=True)
                     
                     st.divider()
             
@@ -480,7 +635,7 @@ def main():
                         # ボタンクリック時に即座に処理
                         if len(st.session_state.comments) > st.session_state.displayed_count:
                             # 既に取得済みのコメントを表示
-                            st.session_state.displayed_count += 50
+                            st.session_state.displayed_count += 100
                         elif st.session_state.next_page_token:
                             # 新しいコメントを取得
                             new_comments, next_token = fetch_comments(
