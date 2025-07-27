@@ -77,22 +77,15 @@ class AnalysisService:
                 json_str = content[json_start:json_end]
                 result_data = json.loads(json_str)
                 
-                # 新しいJSON形式に対応
-                graham_hierarchy = result_data.get("graham_hierarchy", {})
-                graham_text = None
-                if graham_hierarchy and graham_hierarchy.get("level"):
-                    level = graham_hierarchy.get("level")
-                    type_name = graham_hierarchy.get("type", "")
-                    graham_text = f"Lv{level}: {type_name}"
-                
+                # 最新のプロンプトのJSON形式に対応
                 return AnalysisResult(
-                    category=result_data.get("categories", []),
-                    is_counter=graham_hierarchy.get("level") is not None,
-                    graham_hierarchy=graham_text,
-                    logical_fallacy="|".join(result_data.get("logical_fallacies", [])) if result_data.get("logical_fallacies") else None,
-                    validity_assessment="中程度",
-                    explanation=result_data.get("summary", ""),
-                    validity_reason=result_data.get("summary", "")
+                    category=result_data.get("category", []),
+                    is_counter=result_data.get("isCounter", False),
+                    graham_hierarchy=result_data.get("grahamHierarchy"),
+                    logical_fallacy=result_data.get("logicalFallacy"),
+                    validity_assessment=result_data.get("validityAssessment", "判断困難"),
+                    explanation=result_data.get("explanation", ""),
+                    validity_reason=result_data.get("validityReason", "")
                 )
             else:
                 raise ValueError("有効なJSON応答が得られませんでした")
