@@ -53,12 +53,12 @@
 
 ## 出力形式
 必ず以下のJSON形式で回答してください：
-{
+{{
   "categories": ["該当するカテゴリ名の配列"],
-  "graham_hierarchy": {
+  "graham_hierarchy": {{
     "level": レベル番号（1-7）またはnull,
     "type": "タイプ名（英語）"またはnull
-  },
+  }},
   "logical_fallacies": ["該当する論理的誤謬の配列"],
   "summary": "50文字以内の分析サマリー"
-}
+}}
