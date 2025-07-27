@@ -43,7 +43,7 @@ pip install -r requirements.txt
 # core_prompt.txt と additional_prompt.txt が必要
 
 # 開発サーバー起動
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
 ### 3. フロントエンドの起動
@@ -133,7 +133,7 @@ comment_umpire2/
 cd backend
 
 # 開発サーバー起動
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 
 # 型チェック（mypyがあれば）
 mypy app/
