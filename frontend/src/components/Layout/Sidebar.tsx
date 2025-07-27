@@ -14,12 +14,7 @@ const SidebarContainer = styled.aside`
   border-left: 1px solid #e0e0e0;
   
   @media (max-width: 768px) {
-    position: relative;
-    top: 0;
-    height: auto;
-    width: 100%;
-    border-left: none;
-    border-top: 1px solid #e0e0e0;
+    display: none;
   }
 `;
 

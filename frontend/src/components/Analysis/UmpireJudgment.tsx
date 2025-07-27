@@ -38,9 +38,9 @@ const UmpireImage = styled.img`
 `;
 
 const JudgmentLabel = styled.div`
-  font-size: 0.9rem;
-  color: #666;
-  font-weight: 500;
+  font-size: 1.2rem;
+  color: #333;
+  font-weight: 700;
 `;
 
 export const UmpireJudgment: React.FC<UmpireJudgmentProps> = ({ result }) => {
@@ -49,7 +49,7 @@ export const UmpireJudgment: React.FC<UmpireJudgmentProps> = ({ result }) => {
   return (
     <Container $isOut={isOut}>
       <UmpireImage 
-        src={isOut ? '/image/out.png' : '/image/safe.png'}
+        src={isOut ? '/image/out.jpg' : '/image/safe.jpg'}
         alt={isOut ? 'アウト判定' : 'セーフ判定'}
       />
       

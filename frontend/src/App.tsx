@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MainLayout } from './components/Layout/MainLayout';
 import { URLInput } from './components/VideoInput/URLInput';
@@ -6,6 +6,8 @@ import { VideoInfo } from './components/VideoInput/VideoInfo';
 import { CommentList } from './components/Comments/CommentList';
 import { GlobalStyle } from './styles/GlobalStyle';
 import { ErrorBoundary } from './components/Common/ErrorBoundary';
+import { FloatingResultButton } from './components/Common/FloatingResultButton';
+import { AnalysisModal } from './components/Analysis/AnalysisModal';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -17,6 +19,8 @@ const queryClient = new QueryClient({
 });
 
 function App() {
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
   return (
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
@@ -26,6 +30,11 @@ function App() {
           <VideoInfo />
           <CommentList />
         </MainLayout>
+        <FloatingResultButton onClick={() => setIsModalOpen(true)} />
+        <AnalysisModal 
+          isOpen={isModalOpen} 
+          onClose={() => setIsModalOpen(false)} 
+        />
       </QueryClientProvider>
     </ErrorBoundary>
   );

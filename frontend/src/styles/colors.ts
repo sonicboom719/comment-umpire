@@ -17,7 +17,11 @@ export const CATEGORY_COLORS = {
   '問題提起': '#FF5722',
   '正論': '#009688',
   '差別的': '#212121',
-  '共感': '#FFB6C1'
+  '共感': '#FFB6C1',
+  '質問': '#9E9E9E',
+  '回答': '#03A9F4',
+  '要望': '#673AB7',
+  '指図': '#E64A19'
 } as const;
 
 export type CategoryType = keyof typeof CATEGORY_COLORS;
