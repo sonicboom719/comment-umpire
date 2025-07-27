@@ -31,3 +31,18 @@ class AnalysisResult(BaseModel):
     safe_or_out: str
     explanation: str
     validity_reason: str
+
+class ConversationMessage(BaseModel):
+    role: str  # 'user' or 'umpire'
+    content: str
+
+class ProtestRequest(BaseModel):
+    comment_text: str
+    original_result: AnalysisResult
+    protest_message: str
+    conversation_history: List[ConversationMessage]
+
+class ProtestResponse(BaseModel):
+    umpire_response: str
+    judgment_changed: bool
+    new_result: Optional[AnalysisResult] = None

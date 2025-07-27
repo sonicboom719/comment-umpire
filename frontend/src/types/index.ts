@@ -42,3 +42,19 @@ export interface ErrorResponse {
   error: string;
   detail?: string;
 }
+
+export interface ProtestRequest {
+  comment_text: string;
+  original_result: AnalysisResult;
+  protest_message: string;
+  conversation_history: Array<{
+    role: 'user' | 'umpire';
+    content: string;
+  }>;
+}
+
+export interface ProtestResponse {
+  umpire_response: string;
+  judgment_changed: boolean;
+  new_result?: AnalysisResult;
+}

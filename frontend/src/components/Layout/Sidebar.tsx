@@ -31,7 +31,28 @@ const EmptyState = styled.div`
 `;
 
 export const Sidebar: React.FC = () => {
-  const { analysisResult, analyzingCommentId, setSelectedCommentId } = useAppStore();
+  const { 
+    analysisResult, 
+    analyzingCommentId, 
+    setAnalysisResult,
+    selectedCommentId,
+    comments,
+    replies 
+  } = useAppStore();
+
+  // 親コメントから検索
+  let selectedComment = comments.find(c => c.id === selectedCommentId);
+  
+  // 見つからない場合は返信コメントから検索
+  if (!selectedComment) {
+    for (const commentReplies of Object.values(replies)) {
+      const reply = commentReplies.find(r => r.id === selectedCommentId);
+      if (reply) {
+        selectedComment = reply;
+        break;
+      }
+    }
+  }
 
   return (
     <SidebarContainer>
@@ -40,8 +61,13 @@ export const Sidebar: React.FC = () => {
           <h3>🔍 分析中...</h3>
           <p>コメントを分析しています。しばらくお待ちください。</p>
         </div>
-      ) : analysisResult ? (
-        <AnalysisResult result={analysisResult} />
+      ) : analysisResult && selectedComment ? (
+        <AnalysisResult 
+          result={analysisResult} 
+          commentId={selectedComment.id}
+          commentText={selectedComment.text}
+          onResultUpdate={setAnalysisResult}
+        />
       ) : (
         <EmptyState>
           コメントの「⚖️ 審判」ボタンをクリックすると、<br />

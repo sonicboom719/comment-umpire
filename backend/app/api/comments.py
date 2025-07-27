@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException, Depends
 from typing import List
 import os
 
-from app.models.comment import Comment, AnalysisRequest, AnalysisResult
+from app.models.comment import Comment, AnalysisRequest, AnalysisResult, ProtestRequest, ProtestResponse
 from app.models.response import ErrorResponse
 from app.services.youtube_service import YouTubeService
 from app.services.analysis_service import AnalysisService
@@ -51,6 +51,26 @@ async def analyze_comment(
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         print(f"Unexpected error in analyze_comment: {type(e).__name__}: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"予期しないエラー: {str(e)}")
+
+@router.post("/protest", response_model=ProtestResponse)
+async def protest_judgment(
+    request: ProtestRequest,
+    analysis_service: AnalysisService = Depends(get_analysis_service)
+):
+    """判定に対する抗議を処理"""
+    try:
+        print(f"Processing protest for comment: {request.comment_text[:50]}...")
+        response = await analysis_service.handle_protest(request)
+        print(f"Protest handled successfully")
+        return response
+    except ValueError as e:
+        print(f"ValueError in protest_judgment: {str(e)}")
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        print(f"Unexpected error in protest_judgment: {type(e).__name__}: {str(e)}")
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"予期しないエラー: {str(e)}")

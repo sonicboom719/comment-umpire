@@ -4,7 +4,9 @@ import type {
   CommentsResponse, 
   Comment, 
   AnalysisRequest, 
-  AnalysisResult 
+  AnalysisResult,
+  ProtestRequest,
+  ProtestResponse
 } from '@/types';
 
 class CommentUmpireAPI {
@@ -65,7 +67,13 @@ class CommentUmpireAPI {
     const response = await this.axios.get('/health');
     return response.data;
   }
+
+  async protestJudgment(request: ProtestRequest): Promise<ProtestResponse> {
+    const response = await this.axios.post<ProtestResponse>('/comments/protest', request);
+    return response.data;
+  }
 }
 
 export const api = new CommentUmpireAPI();
+export const protestJudgment = api.protestJudgment.bind(api);
 export default CommentUmpireAPI;

@@ -97,3 +97,90 @@ class AnalysisService:
             import traceback
             traceback.print_exc()
             raise ValueError(f"分析エラー: {str(e)}")
+    
+    async def handle_protest(self, request) -> dict:
+        """抗議に対する審判の応答を生成"""
+        from app.models.comment import ProtestResponse
+        
+        # 会話履歴を構築
+        conversation = "これまでの会話:\n"
+        for msg in request.conversation_history:
+            role = "ユーザー" if msg.role == "user" else "審判"
+            conversation += f"{role}: {msg.content}\n"
+        
+        # 審判としてのプロンプトを作成
+        prompt = f"""あなたはプロ野球の主審です。コメント判定に対する抗議を受けています。
+実際のプロ野球審判のように、以下の特徴を持って対応してください：
+
+1. プロフェッショナルで毅然とした態度
+2. 判定の根拠を論理的に説明
+3. 感情的な抗議には冷静に対処
+4. 明確な証拠がある場合のみ判定を覆す
+5. 必要に応じて警告を与える
+
+【元のコメント】
+"{request.comment_text}"
+
+【元の判定結果】
+- カテゴリー: {', '.join(request.original_result.category)}
+- セーフ/アウト: {request.original_result.safe_or_out}
+- 判定理由: {request.original_result.explanation}
+- 妥当性評価: {request.original_result.validity_assessment}
+
+{conversation}
+
+【ユーザーからの新たな抗議】
+{request.protest_message}
+
+【判定変更の基準】
+- 元の判定に明確な誤りがある場合
+- 重要な文脈を見落としていた場合
+- カテゴリー分類に明らかな間違いがある場合
+
+単なる意見の相違や感情的な不満では判定を変更しません。
+
+応答をJSON形式で返してください：
+{{
+    "umpireResponse": "プロ野球審判としての毅然とした応答（100-150文字）",
+    "judgmentChanged": true/false,
+    "newSafeOrOut": "safe/out（変更時のみ）",
+    "newExplanation": "新しい判定理由（変更時のみ、100-150文字）"
+}}"""
+
+        try:
+            response = self.client.chat.completions.create(
+                model="gpt-4o",
+                messages=[
+                    {"role": "system", "content": "あなたは経験豊富なプロ野球の主審です。判定には絶対的な自信を持ち、論理的で公正な判断を下します。"},
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0.5
+            )
+            
+            content = response.choices[0].message.content
+            json_start = content.find('{')
+            json_end = content.rfind('}') + 1
+            
+            if json_start != -1 and json_end != -1:
+                json_str = content[json_start:json_end]
+                result_data = json.loads(json_str)
+                
+                protest_response = ProtestResponse(
+                    umpire_response=result_data.get("umpireResponse", ""),
+                    judgment_changed=result_data.get("judgmentChanged", False)
+                )
+                
+                # 判定が変更された場合、新しい結果を作成
+                if result_data.get("judgmentChanged", False):
+                    new_result = request.original_result.copy()
+                    new_result.safe_or_out = result_data.get("newSafeOrOut", request.original_result.safe_or_out)
+                    new_result.explanation = result_data.get("newExplanation", request.original_result.explanation)
+                    protest_response.new_result = new_result
+                
+                return protest_response
+            else:
+                raise ValueError("有効なJSON応答が得られませんでした")
+                
+        except Exception as e:
+            print(f"Protest handling error: {str(e)}")
+            raise ValueError(f"抗議処理エラー: {str(e)}")
