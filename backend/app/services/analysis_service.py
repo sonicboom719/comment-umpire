@@ -84,6 +84,7 @@ class AnalysisService:
                     graham_hierarchy=result_data.get("grahamHierarchy"),
                     logical_fallacy=result_data.get("logicalFallacy"),
                     validity_assessment=result_data.get("validityAssessment", "判断困難"),
+                    safe_or_out=result_data.get("safeOrOut", "safe"),
                     explanation=result_data.get("explanation", ""),
                     validity_reason=result_data.get("validityReason", "")
                 )

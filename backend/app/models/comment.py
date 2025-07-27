@@ -28,5 +28,6 @@ class AnalysisResult(BaseModel):
     graham_hierarchy: Optional[str]
     logical_fallacy: Optional[str]
     validity_assessment: str
+    safe_or_out: str
     explanation: str
     validity_reason: str

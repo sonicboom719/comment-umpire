@@ -27,6 +27,7 @@ export interface AnalysisResult {
   graham_hierarchy?: string;
   logical_fallacy?: string;
   validity_assessment: string;
+  safe_or_out: string;
   explanation: string;
   validity_reason: string;
 }

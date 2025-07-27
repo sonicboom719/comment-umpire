@@ -4,6 +4,7 @@ import type { AnalysisResult as AnalysisResultType } from '@/types';
 import { CategoryBadges } from './CategoryBadges';
 import { GrahamHierarchy } from './GrahamHierarchy';
 import { LogicalFallacy } from './LogicalFallacy';
+import { UmpireJudgment } from './UmpireJudgment';
 
 interface AnalysisResultProps {
   result: AnalysisResultType;
@@ -67,6 +68,8 @@ const Explanation = styled.p`
 export const AnalysisResult: React.FC<AnalysisResultProps> = ({ result }) => {
   return (
     <Container>
+      <UmpireJudgment result={result} />
+      
       <Title>
         🔍 コメント分析結果
       </Title>
