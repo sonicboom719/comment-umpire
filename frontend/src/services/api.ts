@@ -10,7 +10,7 @@ import type {
 class CommentUmpireAPI {
   private axios: AxiosInstance;
 
-  constructor(baseURL: string = '/api') {
+  constructor(baseURL: string = import.meta.env.VITE_API_URL || '/api') {
     this.axios = axios.create({
       baseURL,
       headers: {
