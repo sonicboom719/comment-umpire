@@ -52,13 +52,13 @@ class YouTubeService:
             raise ValueError(f"YouTube API エラー: {e}")
     
     def get_comments(self, video_id: str, page_token: Optional[str] = None, max_results: int = 100) -> Tuple[List[Comment], Optional[str]]:
-        """動画のコメントを返信も含めて取得"""
+        """動画の親コメントのみを取得（返信は含めない）"""
         try:
-            # まずコメントスレッドを取得
+            # 親コメントのみを取得
             request = self.youtube.commentThreads().list(
-                part="snippet,replies",
+                part="snippet",  # repliesを除外
                 videoId=video_id,
-                maxResults=50,  # 返信を含めるため、親コメントは50件に制限
+                maxResults=max_results,  # 直接max_resultsを使用
                 order="time",
                 pageToken=page_token
             )
@@ -67,7 +67,7 @@ class YouTubeService:
             comments = []
             
             for item in response['items']:
-                # 親コメントを追加
+                # 親コメントのみを追加
                 snippet = item['snippet']['topLevelComment']['snippet']
                 parent_comment = Comment(
                     id=item['snippet']['topLevelComment']['id'],
@@ -78,26 +78,6 @@ class YouTubeService:
                     reply_count=item['snippet'].get('totalReplyCount', 0)
                 )
                 comments.append(parent_comment)
-                
-                # 返信が存在する場合は取得
-                if 'replies' in item and item['replies']['comments']:
-                    for reply_item in item['replies']['comments']:
-                        reply_snippet = reply_item['snippet']
-                        reply = Comment(
-                            id=reply_item['id'],
-                            text=reply_snippet['textDisplay'],
-                            author=reply_snippet['authorDisplayName'],
-                            published_at=datetime.fromisoformat(reply_snippet['publishedAt'].replace('Z', '+00:00')),
-                            like_count=reply_snippet.get('likeCount', 0),
-                            reply_count=0,
-                            parent_id=parent_comment.id
-                        )
-                        comments.append(reply)
-                
-                # 100件に達したら終了
-                if len(comments) >= max_results:
-                    comments = comments[:max_results]
-                    break
             
             next_page_token = response.get('nextPageToken')
             return comments, next_page_token
