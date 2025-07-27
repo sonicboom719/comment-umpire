@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 import os
 
-from app.api import videos, comments, prompts
+from app.api import videos, comments, prompts_simple as prompts
 
 load_dotenv()
 
