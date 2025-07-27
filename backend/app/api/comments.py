@@ -42,9 +42,15 @@ async def analyze_comment(
 ):
     """コメントをAI分析"""
     try:
+        print(f"Analyzing comment: {request.comment_text[:50]}...")
         result = await analysis_service.analyze_comment(request)
+        print(f"Analysis completed successfully")
         return result
     except ValueError as e:
+        print(f"ValueError in analyze_comment: {str(e)}")
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
+        print(f"Unexpected error in analyze_comment: {type(e).__name__}: {str(e)}")
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"予期しないエラー: {str(e)}")

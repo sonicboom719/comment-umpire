@@ -7,8 +7,10 @@ from app.models.comment import Comment, AnalysisRequest, AnalysisResult
 
 class AnalysisService:
     def __init__(self, openai_api_key: str):
+        print(f"Initializing AnalysisService with API key: {openai_api_key[:10]}...")
         self.client = OpenAI(api_key=openai_api_key)
         self.core_prompt, self.additional_prompt = self.load_prompts()
+        print(f"Loaded prompts: core={len(self.core_prompt)} chars, additional={len(self.additional_prompt)} chars")
     
     def load_prompts(self) -> Tuple[str, str]:
         """プロンプトファイルを読み込み"""
@@ -96,4 +98,8 @@ class AnalysisService:
                 raise ValueError("有効なJSON応答が得られませんでした")
         
         except Exception as e:
+            print(f"Analysis error details: {type(e).__name__}: {str(e)}")
+            print(f"Prompt used: {prompt[:200]}...")
+            import traceback
+            traceback.print_exc()
             raise ValueError(f"分析エラー: {str(e)}")
